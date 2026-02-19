@@ -1,0 +1,1201 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>FinanceOS — Gestión Financiera Personal</title>
+  <meta name="description" content="Dashboard de gestión financiera personal con metas de ahorro, registro de ingresos y gastos, y persistencia en el navegador." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
+  <style>
+    /* ═══════════════════════════════════════════
+       DESIGN TOKENS
+    ═══════════════════════════════════════════ */
+    :root {
+      --bg-base:      #0d0f14;
+      --bg-surface:   #141720;
+      --bg-card:      #1b1f2e;
+      --bg-input:     #222639;
+      --border:       #2a2f45;
+      --border-light: #353b57;
+
+      --accent-blue:  #4f8ef7;
+      --accent-green: #30d988;
+      --accent-red:   #f75c5c;
+      --accent-gold:  #f7c860;
+      --accent-purple:#a36af7;
+
+      --text-primary:   #eef0f8;
+      --text-secondary: #8892b0;
+      --text-muted:     #525a78;
+
+      --radius-sm:  8px;
+      --radius-md:  14px;
+      --radius-lg:  20px;
+      --shadow:     0 4px 30px rgba(0,0,0,0.4);
+      --shadow-glow-blue:  0 0 20px rgba(79,142,247,0.18);
+      --shadow-glow-green: 0 0 20px rgba(48,217,136,0.18);
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      font-family: 'Inter', sans-serif;
+      background: var(--bg-base);
+      color: var(--text-primary);
+      min-height: 100vh;
+      line-height: 1.6;
+    }
+
+    /* ═══════════════════════════════════════════
+       SCROLLBAR
+    ═══════════════════════════════════════════ */
+    ::-webkit-scrollbar { width: 6px; }
+    ::-webkit-scrollbar-track { background: var(--bg-base); }
+    ::-webkit-scrollbar-thumb { background: var(--border-light); border-radius: 3px; }
+
+    /* ═══════════════════════════════════════════
+       HEADER
+    ═══════════════════════════════════════════ */
+    header {
+      background: var(--bg-surface);
+      border-bottom: 1px solid var(--border);
+      padding: 18px 32px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      position: sticky; top: 0; z-index: 100;
+      backdrop-filter: blur(12px);
+    }
+
+    .logo {
+      display: flex; align-items: center; gap: 12px;
+    }
+    .logo-icon {
+      width: 36px; height: 36px;
+      background: linear-gradient(135deg, var(--accent-blue), var(--accent-purple));
+      border-radius: var(--radius-sm);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 18px; font-weight: 800; color: #fff;
+      box-shadow: var(--shadow-glow-blue);
+    }
+    .logo-name {
+      font-size: 20px; font-weight: 700; letter-spacing: -.5px;
+      color: var(--text-primary);
+    }
+    .logo-name span { color: var(--accent-blue); }
+
+    .header-date {
+      font-size: 13px; color: var(--text-secondary);
+      background: var(--bg-card);
+      padding: 6px 14px; border-radius: 20px;
+      border: 1px solid var(--border);
+    }
+
+    /* ═══════════════════════════════════════════
+       LAYOUT
+    ═══════════════════════════════════════════ */
+    .app-container {
+      max-width: 1280px;
+      margin: 0 auto;
+      padding: 32px 24px 80px;
+    }
+
+    .section-title {
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 1.5px;
+      text-transform: uppercase;
+      color: var(--text-muted);
+      margin-bottom: 16px;
+    }
+
+    /* ═══════════════════════════════════════════
+       SUMMARY CARDS (top KPIs)
+    ═══════════════════════════════════════════ */
+    .kpi-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 18px;
+      margin-bottom: 36px;
+    }
+
+    .kpi-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      padding: 24px;
+      position: relative;
+      overflow: hidden;
+      transition: transform .2s, box-shadow .2s;
+    }
+    .kpi-card:hover { transform: translateY(-3px); box-shadow: var(--shadow); }
+
+    .kpi-card::before {
+      content: '';
+      position: absolute; inset: 0;
+      border-radius: inherit;
+      opacity: .06;
+      pointer-events: none;
+    }
+    .kpi-card.balance::before  { background: var(--accent-blue); }
+    .kpi-card.income::before   { background: var(--accent-green); }
+    .kpi-card.expense::before  { background: var(--accent-red); }
+    .kpi-card.goals-total::before { background: var(--accent-gold); }
+
+    .kpi-label {
+      font-size: 12px; font-weight: 500;
+      color: var(--text-secondary);
+      letter-spacing: .5px;
+      margin-bottom: 10px;
+      display: flex; align-items: center; gap: 8px;
+    }
+    .kpi-dot {
+      width: 8px; height: 8px; border-radius: 50%;
+      flex-shrink: 0;
+    }
+    .balance   .kpi-dot { background: var(--accent-blue); box-shadow: 0 0 8px var(--accent-blue); }
+    .income    .kpi-dot { background: var(--accent-green); box-shadow: 0 0 8px var(--accent-green); }
+    .expense   .kpi-dot { background: var(--accent-red);  box-shadow: 0 0 8px var(--accent-red); }
+    .goals-total .kpi-dot { background: var(--accent-gold); box-shadow: 0 0 8px var(--accent-gold); }
+
+    .kpi-amount {
+      font-size: 28px; font-weight: 800;
+      letter-spacing: -1px;
+      line-height: 1;
+    }
+    .balance   .kpi-amount { color: var(--accent-blue); }
+    .income    .kpi-amount { color: var(--accent-green); }
+    .expense   .kpi-amount { color: var(--accent-red); }
+    .goals-total .kpi-amount { color: var(--accent-gold); }
+
+    .kpi-sub {
+      font-size: 11px; color: var(--text-muted);
+      margin-top: 6px;
+    }
+
+    /* ═══════════════════════════════════════════
+       TWO-COLUMN LAYOUT
+    ═══════════════════════════════════════════ */
+    .main-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 24px;
+      align-items: start;
+    }
+    @media (max-width: 860px) {
+      .main-grid { grid-template-columns: 1fr; }
+    }
+
+    /* ═══════════════════════════════════════════
+       PANEL (reusable card container)
+    ═══════════════════════════════════════════ */
+    .panel {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      overflow: hidden;
+    }
+
+    .panel-header {
+      padding: 20px 24px 16px;
+      border-bottom: 1px solid var(--border);
+      display: flex; align-items: center; justify-content: space-between;
+    }
+    .panel-title {
+      font-size: 15px; font-weight: 700;
+      display: flex; align-items: center; gap: 10px;
+    }
+    .panel-title .icon {
+      width: 30px; height: 30px;
+      border-radius: var(--radius-sm);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 15px;
+    }
+    .icon-blue   { background: rgba(79,142,247,.15); }
+    .icon-green  { background: rgba(48,217,136,.15); }
+    .icon-gold   { background: rgba(247,200,96,.15); }
+    .icon-purple { background: rgba(163,106,247,.15); }
+
+    .panel-body { padding: 20px 24px 24px; }
+
+    /* ═══════════════════════════════════════════
+       FORM ELEMENTS
+    ═══════════════════════════════════════════ */
+    .form-group { margin-bottom: 14px; }
+    .form-group label {
+      display: block;
+      font-size: 12px; font-weight: 500;
+      color: var(--text-secondary);
+      margin-bottom: 6px;
+      letter-spacing: .3px;
+    }
+    .form-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+    }
+    @media (max-width: 540px) {
+      .form-row { grid-template-columns: 1fr; }
+    }
+
+    input, select, textarea {
+      width: 100%;
+      background: var(--bg-input);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      color: var(--text-primary);
+      font-family: inherit;
+      font-size: 14px;
+      padding: 10px 14px;
+      outline: none;
+      transition: border-color .2s, box-shadow .2s;
+    }
+    input:focus, select:focus {
+      border-color: var(--accent-blue);
+      box-shadow: 0 0 0 3px rgba(79,142,247,.12);
+    }
+    input::placeholder { color: var(--text-muted); }
+    select option { background: var(--bg-input); }
+
+    /* ═══════════════════════════════════════════
+       BUTTONS
+    ═══════════════════════════════════════════ */
+    .btn {
+      display: inline-flex; align-items: center; justify-content: center;
+      gap: 7px;
+      padding: 10px 20px;
+      border: none; cursor: pointer;
+      border-radius: var(--radius-sm);
+      font-family: inherit; font-size: 13px; font-weight: 600;
+      transition: transform .15s, opacity .15s, box-shadow .15s;
+      white-space: nowrap;
+    }
+    .btn:hover { opacity: .88; transform: translateY(-1px); }
+    .btn:active { transform: translateY(0); opacity: 1; }
+
+    .btn-primary {
+      background: linear-gradient(135deg, var(--accent-blue), #3a7bd5);
+      color: #fff;
+      box-shadow: 0 4px 15px rgba(79,142,247,.3);
+    }
+    .btn-success {
+      background: linear-gradient(135deg, var(--accent-green), #1db97e);
+      color: #0d1a12;
+      box-shadow: 0 4px 15px rgba(48,217,136,.3);
+    }
+    .btn-danger {
+      background: rgba(247,92,92,.12);
+      color: var(--accent-red);
+      border: 1px solid rgba(247,92,92,.2);
+    }
+    .btn-ghost {
+      background: var(--bg-input);
+      color: var(--text-secondary);
+      border: 1px solid var(--border);
+    }
+    .btn-gold {
+      background: linear-gradient(135deg, var(--accent-gold), #e5a800);
+      color: #1a1200;
+      box-shadow: 0 4px 15px rgba(247,200,96,.3);
+    }
+    .btn-full { width: 100%; }
+
+    /* ═══════════════════════════════════════════
+       TRANSACTIONS LIST
+    ═══════════════════════════════════════════ */
+    .tx-list { list-style: none; display: flex; flex-direction: column; gap: 8px; }
+
+    .tx-item {
+      display: flex; align-items: center; gap: 14px;
+      background: var(--bg-input);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      padding: 12px 16px;
+      transition: border-color .2s;
+      animation: fadeSlideIn .3s ease;
+    }
+    .tx-item:hover { border-color: var(--border-light); }
+
+    @keyframes fadeSlideIn {
+      from { opacity: 0; transform: translateY(8px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    .tx-badge {
+      width: 34px; height: 34px; flex-shrink: 0;
+      border-radius: var(--radius-sm);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 16px;
+    }
+    .tx-badge.income  { background: rgba(48,217,136,.15); }
+    .tx-badge.expense { background: rgba(247,92,92,.15); }
+
+    .tx-info { flex: 1; min-width: 0; }
+    .tx-desc {
+      font-size: 13px; font-weight: 500;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .tx-date { font-size: 11px; color: var(--text-muted); }
+
+    .tx-amount {
+      font-size: 14px; font-weight: 700;
+      flex-shrink: 0;
+    }
+    .tx-amount.income  { color: var(--accent-green); }
+    .tx-amount.expense { color: var(--accent-red); }
+
+    .btn-del {
+      background: none; border: none; cursor: pointer;
+      color: var(--text-muted); font-size: 14px;
+      padding: 4px; border-radius: 4px;
+      transition: color .2s, background .2s;
+      flex-shrink: 0;
+    }
+    .btn-del:hover { color: var(--accent-red); background: rgba(247,92,92,.1); }
+
+    .empty-state {
+      text-align: center;
+      padding: 32px 20px;
+      color: var(--text-muted);
+      font-size: 13px;
+    }
+    .empty-state .empty-icon { font-size: 36px; margin-bottom: 10px; }
+
+    /* ═══════════════════════════════════════════
+       GOALS
+    ═══════════════════════════════════════════ */
+    .goals-list { display: flex; flex-direction: column; gap: 14px; }
+
+    .goal-card {
+      background: var(--bg-input);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-md);
+      padding: 18px 18px 16px;
+      transition: border-color .2s;
+      animation: fadeSlideIn .3s ease;
+    }
+    .goal-card:hover { border-color: var(--border-light); }
+
+    .goal-header {
+      display: flex; align-items: flex-start;
+      justify-content: space-between; gap: 10px;
+      margin-bottom: 12px;
+    }
+    .goal-name {
+      font-size: 14px; font-weight: 600;
+      display: flex; align-items: center; gap: 8px;
+    }
+    .goal-emoji { font-size: 18px; }
+
+    .goal-amounts {
+      font-size: 12px; color: var(--text-secondary);
+    }
+    .goal-amount-saved { font-size: 16px; font-weight: 700; color: var(--accent-purple); }
+    .goal-amount-target { color: var(--text-muted); }
+
+    /* progress bar */
+    .progress-track {
+      height: 8px;
+      background: var(--bg-surface);
+      border-radius: 4px;
+      overflow: hidden;
+      margin: 10px 0 8px;
+    }
+    .progress-fill {
+      height: 100%;
+      border-radius: 4px;
+      background: linear-gradient(90deg, var(--accent-blue), var(--accent-purple));
+      transition: width .6s cubic-bezier(.4,0,.2,1);
+      position: relative;
+    }
+    .progress-fill::after {
+      content: '';
+      position: absolute; right: 0; top: 0; bottom: 0;
+      width: 6px;
+      background: rgba(255,255,255,.35);
+      border-radius: 3px;
+      filter: blur(2px);
+    }
+
+    .goal-meta {
+      display: flex; align-items: center; justify-content: space-between;
+      font-size: 11px;
+    }
+    .goal-pct {
+      font-weight: 700; font-size: 13px;
+    }
+    .goal-pct.complete { color: var(--accent-green); }
+
+    .goal-actions {
+      display: flex; gap: 8px; margin-top: 12px;
+    }
+
+    /* ═══════════════════════════════════════════
+       MODAL / OVERLAY
+    ═══════════════════════════════════════════ */
+    .modal-overlay {
+      display: none;
+      position: fixed; inset: 0; z-index: 200;
+      background: rgba(0,0,0,.65);
+      backdrop-filter: blur(6px);
+      align-items: center; justify-content: center;
+      animation: fadeIn .2s ease;
+    }
+    .modal-overlay.open { display: flex; }
+
+    @keyframes fadeIn {
+      from { opacity: 0; }
+      to   { opacity: 1; }
+    }
+
+    .modal {
+      background: var(--bg-card);
+      border: 1px solid var(--border-light);
+      border-radius: var(--radius-lg);
+      padding: 30px;
+      width: min(440px, 90vw);
+      box-shadow: var(--shadow);
+      animation: scaleIn .25s cubic-bezier(.34,1.56,.64,1);
+    }
+    @keyframes scaleIn {
+      from { opacity: 0; transform: scale(.92); }
+      to   { opacity: 1; transform: scale(1); }
+    }
+
+    .modal-title {
+      font-size: 17px; font-weight: 700;
+      margin-bottom: 6px;
+    }
+    .modal-sub {
+      font-size: 13px; color: var(--text-secondary);
+      margin-bottom: 20px;
+    }
+    .modal-goal-name {
+      color: var(--accent-purple); font-weight: 600;
+    }
+    .modal-actions {
+      display: flex; gap: 10px; margin-top: 20px;
+    }
+
+    /* ═══════════════════════════════════════════
+       TOAST NOTIFICATIONS
+    ═══════════════════════════════════════════ */
+    #toast-container {
+      position: fixed; bottom: 28px; right: 28px;
+      display: flex; flex-direction: column; gap: 10px;
+      z-index: 999;
+    }
+    .toast {
+      background: var(--bg-card);
+      border: 1px solid var(--border-light);
+      border-radius: var(--radius-sm);
+      padding: 12px 18px;
+      font-size: 13px; font-weight: 500;
+      box-shadow: var(--shadow);
+      display: flex; align-items: center; gap: 10px;
+      animation: toastIn .3s ease, toastOut .3s ease 2.8s forwards;
+      max-width: 320px;
+    }
+    @keyframes toastIn {
+      from { opacity: 0; transform: translateX(30px); }
+      to   { opacity: 1; transform: translateX(0); }
+    }
+    @keyframes toastOut {
+      from { opacity: 1; transform: translateX(0); }
+      to   { opacity: 0; transform: translateX(30px); }
+    }
+
+    /* ═══════════════════════════════════════════
+       TYPE TOGGLE
+    ═══════════════════════════════════════════ */
+    .type-toggle {
+      display: grid; grid-template-columns: 1fr 1fr;
+      background: var(--bg-input);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      padding: 3px;
+      margin-bottom: 16px;
+    }
+    .type-btn {
+      padding: 8px;
+      border: none; cursor: pointer;
+      border-radius: 6px;
+      font-family: inherit; font-size: 13px; font-weight: 600;
+      transition: all .2s;
+      background: transparent; color: var(--text-muted);
+    }
+    .type-btn.active-income {
+      background: rgba(48,217,136,.15);
+      color: var(--accent-green);
+    }
+    .type-btn.active-expense {
+      background: rgba(247,92,92,.15);
+      color: var(--accent-red);
+    }
+
+    /* ═══════════════════════════════════════════
+       FILTER TABS
+    ═══════════════════════════════════════════ */
+    .filter-tabs {
+      display: flex; gap: 6px; flex-wrap: wrap;
+    }
+    .filter-tab {
+      padding: 5px 12px;
+      border-radius: 20px; border: 1px solid var(--border);
+      background: var(--bg-input); color: var(--text-secondary);
+      font-size: 12px; font-weight: 500; cursor: pointer;
+      transition: all .2s;
+    }
+    .filter-tab.active {
+      background: var(--accent-blue);
+      border-color: var(--accent-blue);
+      color: #fff;
+    }
+
+    /* ═══════════════════════════════════════════
+       MISC UTILITIES
+    ═══════════════════════════════════════════ */
+    .divider {
+      height: 1px; background: var(--border);
+      margin: 20px 0;
+    }
+
+    .full-width { grid-column: 1 / -1; }
+
+    .badge {
+      display: inline-block;
+      padding: 2px 8px; border-radius: 20px;
+      font-size: 10px; font-weight: 600; letter-spacing: .5px;
+    }
+    .badge-complete {
+      background: rgba(48,217,136,.15);
+      color: var(--accent-green);
+    }
+
+    /* Scrollable TX list */
+    .tx-scroll {
+      max-height: 340px;
+      overflow-y: auto;
+      padding-right: 4px;
+    }
+
+    /* Footer note */
+    .footer-note {
+      text-align: center;
+      font-size: 11px;
+      color: var(--text-muted);
+      margin-top: 40px;
+    }
+  </style>
+</head>
+<body>
+
+<!-- ══════════════ HEADER ══════════════ -->
+<header>
+  <div class="logo">
+    <div class="logo-icon">F</div>
+    <span class="logo-name">Finance<span>OS</span></span>
+  </div>
+  <div class="header-date" id="header-date"></div>
+</header>
+
+<!-- ══════════════ APP ══════════════ -->
+<div class="app-container">
+
+  <!-- KPI CARDS -->
+  <p class="section-title">Resumen</p>
+  <div class="kpi-grid">
+    <div class="kpi-card balance">
+      <div class="kpi-label"><span class="kpi-dot"></span> Saldo Disponible</div>
+      <div class="kpi-amount" id="kpi-balance">$0.00</div>
+      <div class="kpi-sub">Ingresos − Gastos − Ahorros en Metas</div>
+    </div>
+    <div class="kpi-card income">
+      <div class="kpi-label"><span class="kpi-dot"></span> Ingresos Totales</div>
+      <div class="kpi-amount" id="kpi-income">$0.00</div>
+      <div class="kpi-sub" id="kpi-income-count">0 transacciones</div>
+    </div>
+    <div class="kpi-card expense">
+      <div class="kpi-label"><span class="kpi-dot"></span> Gastos Totales</div>
+      <div class="kpi-amount" id="kpi-expense">$0.00</div>
+      <div class="kpi-sub" id="kpi-expense-count">0 transacciones</div>
+    </div>
+    <div class="kpi-card goals-total">
+      <div class="kpi-label"><span class="kpi-dot"></span> Total en Metas</div>
+      <div class="kpi-amount" id="kpi-goals">$0.00</div>
+      <div class="kpi-sub" id="kpi-goals-count">0 metas activas</div>
+    </div>
+  </div>
+
+  <!-- MAIN GRID -->
+  <div class="main-grid">
+
+    <!-- ── LEFT COLUMN: TRANSACTIONS ── -->
+    <div style="display:flex;flex-direction:column;gap:20px;">
+
+      <!-- Add Transaction -->
+      <div class="panel">
+        <div class="panel-header">
+          <div class="panel-title">
+            <span class="icon icon-blue">💳</span>
+            Nueva Transacción
+          </div>
+        </div>
+        <div class="panel-body">
+          <div class="type-toggle">
+            <button class="type-btn active-income" id="btn-type-income" onclick="setTxType('income')">
+              ▲ Ingreso
+            </button>
+            <button class="type-btn" id="btn-type-expense" onclick="setTxType('expense')">
+              ▼ Gasto
+            </button>
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label for="tx-desc">Descripción</label>
+              <input id="tx-desc" type="text" placeholder="Ej. Salario, Renta…" />
+            </div>
+            <div class="form-group">
+              <label for="tx-amount">Monto ($)</label>
+              <input id="tx-amount" type="number" placeholder="0.00" min="0.01" step="0.01" />
+            </div>
+          </div>
+          <div class="form-group">
+            <label for="tx-category">Categoría</label>
+            <select id="tx-category">
+              <option value="General">General</option>
+              <option value="Alimentación">Alimentación</option>
+              <option value="Transporte">Transporte</option>
+              <option value="Vivienda">Vivienda</option>
+              <option value="Salud">Salud</option>
+              <option value="Educación">Educación</option>
+              <option value="Entretenimiento">Entretenimiento</option>
+              <option value="Trabajo">Trabajo</option>
+              <option value="Inversión">Inversión</option>
+              <option value="Otro">Otro</option>
+            </select>
+          </div>
+          <button class="btn btn-primary btn-full" onclick="addTransaction()">
+            ＋ Agregar Transacción
+          </button>
+        </div>
+      </div>
+
+      <!-- Transactions List -->
+      <div class="panel">
+        <div class="panel-header">
+          <div class="panel-title">
+            <span class="icon icon-blue">📋</span>
+            Historial
+          </div>
+          <div class="filter-tabs">
+            <button class="filter-tab active" onclick="setFilter('all',this)">Todos</button>
+            <button class="filter-tab" onclick="setFilter('income',this)">Ingresos</button>
+            <button class="filter-tab" onclick="setFilter('expense',this)">Gastos</button>
+          </div>
+        </div>
+        <div class="panel-body">
+          <div class="tx-scroll">
+            <ul class="tx-list" id="tx-list"></ul>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── RIGHT COLUMN: GOALS ── -->
+    <div style="display:flex;flex-direction:column;gap:20px;">
+
+      <!-- Add Goal -->
+      <div class="panel">
+        <div class="panel-header">
+          <div class="panel-title">
+            <span class="icon icon-gold">🎯</span>
+            Nueva Meta de Ahorro
+          </div>
+        </div>
+        <div class="panel-body">
+          <div class="form-row">
+            <div class="form-group">
+              <label for="goal-name">Nombre de la Meta</label>
+              <input id="goal-name" type="text" placeholder="Ej. Fondo de emergencia" />
+            </div>
+            <div class="form-group">
+              <label for="goal-target">Monto Objetivo ($)</label>
+              <input id="goal-target" type="number" placeholder="0.00" min="1" step="0.01" />
+            </div>
+          </div>
+          <div class="form-group">
+            <label for="goal-emoji">Emoji / Ícono</label>
+            <input id="goal-emoji" type="text" placeholder="🏠" maxlength="2" style="font-size:18px;text-align:center;" />
+          </div>
+          <button class="btn btn-gold btn-full" onclick="addGoal()">
+            ＋ Crear Meta
+          </button>
+        </div>
+      </div>
+
+      <!-- Goals List -->
+      <div class="panel">
+        <div class="panel-header">
+          <div class="panel-title">
+            <span class="icon icon-purple">📊</span>
+            Mis Metas
+          </div>
+        </div>
+        <div class="panel-body">
+          <div class="goals-list" id="goals-list"></div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <p class="footer-note">💾 Datos guardados automáticamente en tu navegador · FinanceOS 2026</p>
+</div>
+
+<!-- ══════════════ MODAL: APORTAR ══════════════ -->
+<div class="modal-overlay" id="aporte-modal">
+  <div class="modal">
+    <div class="modal-title">💰 Aportar a Meta</div>
+    <div class="modal-sub">
+      Destinar fondos a: <span class="modal-goal-name" id="modal-goal-name">—</span>
+      <br>
+      <small style="color:var(--text-muted)" id="modal-goal-info"></small>
+    </div>
+    <div class="form-group">
+      <label for="aporte-amount">Monto a Aportar ($)</label>
+      <input id="aporte-amount" type="number" placeholder="0.00" min="0.01" step="0.01" autofocus />
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-primary" style="flex:1" onclick="confirmAporte()">Confirmar Aporte</button>
+      <button class="btn btn-ghost" onclick="closeModal()">Cancelar</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════ TOAST CONTAINER ══════════════ -->
+<div id="toast-container"></div>
+
+<!-- ══════════════ JAVASCRIPT ══════════════ -->
+<script>
+// ═══════════════════════════════════════════════════════
+//  STATE
+// ═══════════════════════════════════════════════════════
+const STORAGE_KEY = 'finance_os_v1';
+
+let state = {
+  transactions: [], // { id, type: 'income'|'expense', description, amount, category, date }
+  goals: []         // { id, name, emoji, target, saved }
+};
+
+let txTypeSelected = 'income';   // current selection in toggle
+let txFilter       = 'all';      // current list filter
+let activeGoalId   = null;       // goal being contributed to
+
+// ═══════════════════════════════════════════════════════
+//  PERSISTENCE
+// ═══════════════════════════════════════════════════════
+function saveState() {
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+  } catch (e) {
+    console.warn('localStorage unavailable:', e);
+  }
+}
+
+function loadState() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      // validate structure
+      if (Array.isArray(parsed.transactions) && Array.isArray(parsed.goals)) {
+        state = parsed;
+      }
+    }
+  } catch (e) {
+    console.warn('Error loading state:', e);
+  }
+}
+
+// ═══════════════════════════════════════════════════════
+//  COMPUTED TOTALS
+// ═══════════════════════════════════════════════════════
+function getTotals() {
+  const income  = state.transactions
+    .filter(t => t.type === 'income')
+    .reduce((s, t) => s + t.amount, 0);
+
+  const expense = state.transactions
+    .filter(t => t.type === 'expense')
+    .reduce((s, t) => s + t.amount, 0);
+
+  const goalsTotal = state.goals.reduce((s, g) => s + g.saved, 0);
+
+  const balance = income - expense - goalsTotal;
+
+  return { income, expense, goalsTotal, balance };
+}
+
+// ═══════════════════════════════════════════════════════
+//  FORMATTING
+// ═══════════════════════════════════════════════════════
+function fmt(n) {
+  return '$' + Math.abs(n).toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+
+function fmtDate(iso) {
+  const d = new Date(iso);
+  return d.toLocaleDateString('es-MX', { day: '2-digit', month: 'short', year: 'numeric' });
+}
+
+// ═══════════════════════════════════════════════════════
+//  RENDER
+// ═══════════════════════════════════════════════════════
+function render() {
+  const { income, expense, goalsTotal, balance } = getTotals();
+
+  // KPI Cards
+  document.getElementById('kpi-balance').textContent = fmt(balance);
+  document.getElementById('kpi-balance').style.color =
+    balance < 0 ? 'var(--accent-red)' : 'var(--accent-blue)';
+
+  document.getElementById('kpi-income').textContent  = fmt(income);
+  document.getElementById('kpi-expense').textContent = fmt(expense);
+  document.getElementById('kpi-goals').textContent   = fmt(goalsTotal);
+
+  const incCount = state.transactions.filter(t => t.type === 'income').length;
+  const expCount = state.transactions.filter(t => t.type === 'expense').length;
+  document.getElementById('kpi-income-count').textContent  =
+    incCount + ' transacción' + (incCount !== 1 ? 'es' : '');
+  document.getElementById('kpi-expense-count').textContent =
+    expCount + ' transacción' + (expCount !== 1 ? 'es' : '');
+  document.getElementById('kpi-goals-count').textContent =
+    state.goals.length + ' meta' + (state.goals.length !== 1 ? 's' : '') + ' activa' + (state.goals.length !== 1 ? 's' : '');
+
+  // Transactions
+  renderTransactions();
+
+  // Goals
+  renderGoals();
+}
+
+function renderTransactions() {
+  const list = document.getElementById('tx-list');
+  const filtered = state.transactions.filter(t =>
+    txFilter === 'all' ? true : t.type === txFilter
+  ).slice().reverse(); // newest first
+
+  if (filtered.length === 0) {
+    list.innerHTML = `
+      <div class="empty-state">
+        <div class="empty-icon">💸</div>
+        <div>Sin transacciones aún.<br>¡Agrega tu primera entrada!</div>
+      </div>`;
+    return;
+  }
+
+  list.innerHTML = filtered.map(t => `
+    <li class="tx-item">
+      <div class="tx-badge ${t.type}">${t.type === 'income' ? '⬆️' : '⬇️'}</div>
+      <div class="tx-info">
+        <div class="tx-desc">${escHtml(t.description)}</div>
+        <div class="tx-date">${escHtml(t.category)} · ${fmtDate(t.date)}</div>
+      </div>
+      <div class="tx-amount ${t.type}">${t.type === 'income' ? '+' : '−'}${fmt(t.amount)}</div>
+      <button class="btn-del" title="Eliminar" onclick="deleteTransaction('${t.id}')">✕</button>
+    </li>
+  `).join('');
+}
+
+function renderGoals() {
+  const container = document.getElementById('goals-list');
+
+  if (state.goals.length === 0) {
+    container.innerHTML = `
+      <div class="empty-state">
+        <div class="empty-icon">🎯</div>
+        <div>Sin metas creadas aún.<br>¡Define tu primer objetivo!</div>
+      </div>`;
+    return;
+  }
+
+  container.innerHTML = state.goals.map(g => {
+    const pct = g.target > 0 ? Math.min(100, (g.saved / g.target) * 100) : 0;
+    const complete = pct >= 100;
+    const remaining = Math.max(0, g.target - g.saved);
+
+    return `
+      <div class="goal-card" id="goal-card-${g.id}">
+        <div class="goal-header">
+          <div class="goal-name">
+            <span class="goal-emoji">${escHtml(g.emoji || '🎯')}</span>
+            ${escHtml(g.name)}
+            ${complete ? '<span class="badge badge-complete">✓ Completada</span>' : ''}
+          </div>
+          <div class="goal-amounts">
+            <div class="goal-amount-saved">${fmt(g.saved)}</div>
+            <div class="goal-amount-target">de ${fmt(g.target)}</div>
+          </div>
+        </div>
+
+        <div class="progress-track">
+          <div class="progress-fill" style="width:${pct.toFixed(1)}%"></div>
+        </div>
+
+        <div class="goal-meta">
+          <span class="goal-pct ${complete ? 'complete' : ''}">${pct.toFixed(1)}%</span>
+          <span style="font-size:11px;color:var(--text-muted)">
+            ${complete ? '¡Meta alcanzada! 🎉' : 'Faltan ' + fmt(remaining)}
+          </span>
+        </div>
+
+        <div class="goal-actions">
+          ${!complete ? `<button class="btn btn-gold" onclick="openAporte('${g.id}')">💰 Aportar</button>` : ''}
+          <button class="btn btn-ghost" onclick="withdrawGoal('${g.id}')">↩ Retirar</button>
+          <button class="btn btn-danger" style="margin-left:auto" onclick="deleteGoal('${g.id}')">✕ Eliminar</button>
+        </div>
+      </div>`;
+  }).join('');
+}
+
+// ═══════════════════════════════════════════════════════
+//  TRANSACTIONS
+// ═══════════════════════════════════════════════════════
+function setTxType(type) {
+  txTypeSelected = type;
+  const btnIncome  = document.getElementById('btn-type-income');
+  const btnExpense = document.getElementById('btn-type-expense');
+  btnIncome.className  = 'type-btn' + (type === 'income'  ? ' active-income'  : '');
+  btnExpense.className = 'type-btn' + (type === 'expense' ? ' active-expense' : '');
+}
+
+function addTransaction() {
+  const desc   = document.getElementById('tx-desc').value.trim();
+  const amount = parseFloat(document.getElementById('tx-amount').value);
+  const cat    = document.getElementById('tx-category').value;
+
+  if (!desc) { showToast('⚠️ Escribe una descripción', 'warn'); return; }
+  if (!amount || amount <= 0) { showToast('⚠️ Ingresa un monto válido', 'warn'); return; }
+
+  // For expenses, check if there's enough balance
+  if (txTypeSelected === 'expense') {
+    const { balance } = getTotals();
+    if (amount > balance) {
+      showToast('❌ Saldo insuficiente para este gasto', 'error'); return;
+    }
+  }
+
+  const tx = {
+    id:          'tx_' + Date.now(),
+    type:        txTypeSelected,
+    description: desc,
+    amount:      amount,
+    category:    cat,
+    date:        new Date().toISOString()
+  };
+
+  state.transactions.push(tx);
+  saveState();
+  render();
+
+  // Clear inputs
+  document.getElementById('tx-desc').value   = '';
+  document.getElementById('tx-amount').value = '';
+
+  showToast(
+    tx.type === 'income'
+      ? `✅ Ingreso de ${fmt(amount)} agregado`
+      : `✅ Gasto de ${fmt(amount)} registrado`,
+    'success'
+  );
+}
+
+function deleteTransaction(id) {
+  state.transactions = state.transactions.filter(t => t.id !== id);
+  saveState();
+  render();
+  showToast('🗑️ Transacción eliminada', 'info');
+}
+
+function setFilter(f, el) {
+  txFilter = f;
+  document.querySelectorAll('.filter-tab').forEach(b => b.classList.remove('active'));
+  el.classList.add('active');
+  renderTransactions();
+}
+
+// ═══════════════════════════════════════════════════════
+//  GOALS
+// ═══════════════════════════════════════════════════════
+function addGoal() {
+  const name   = document.getElementById('goal-name').value.trim();
+  const target = parseFloat(document.getElementById('goal-target').value);
+  const emoji  = document.getElementById('goal-emoji').value.trim() || '🎯';
+
+  if (!name)          { showToast('⚠️ Escribe el nombre de la meta', 'warn'); return; }
+  if (!target || target <= 0) { showToast('⚠️ Ingresa un monto objetivo válido', 'warn'); return; }
+
+  const goal = {
+    id:     'goal_' + Date.now(),
+    name:   name,
+    emoji:  emoji,
+    target: target,
+    saved:  0
+  };
+
+  state.goals.push(goal);
+  saveState();
+  render();
+
+  document.getElementById('goal-name').value   = '';
+  document.getElementById('goal-target').value = '';
+  document.getElementById('goal-emoji').value  = '';
+
+  showToast(`🎯 Meta "${name}" creada`, 'success');
+}
+
+function deleteGoal(id) {
+  const goal = state.goals.find(g => g.id === id);
+  if (!goal) return;
+
+  // savings are returned to the "balance" automatically
+  // (we just remove the goal; balance = income - expenses - sum(saved))
+  // But we note this to the user
+  if (goal.saved > 0) {
+    showToast(`↩ ${fmt(goal.saved)} devuelto al saldo disponible`, 'info');
+  }
+  state.goals = state.goals.filter(g => g.id !== id);
+  saveState();
+  render();
+  showToast(`🗑️ Meta "${goal.name}" eliminada`, 'info');
+}
+
+// ── APORTAR MODAL ──
+function openAporte(goalId) {
+  activeGoalId = goalId;
+  const goal = state.goals.find(g => g.id === goalId);
+  if (!goal) return;
+
+  const { balance } = getTotals();
+
+  document.getElementById('modal-goal-name').textContent = goal.name + ' ' + (goal.emoji || '');
+  document.getElementById('modal-goal-info').textContent =
+    `Ahorrado: ${fmt(goal.saved)} / ${fmt(goal.target)}  ·  Saldo disponible: ${fmt(balance)}`;
+  document.getElementById('aporte-amount').value = '';
+
+  document.getElementById('aporte-modal').classList.add('open');
+  setTimeout(() => document.getElementById('aporte-amount').focus(), 100);
+}
+
+function closeModal() {
+  document.getElementById('aporte-modal').classList.remove('open');
+  activeGoalId = null;
+}
+
+function confirmAporte() {
+  const amount = parseFloat(document.getElementById('aporte-amount').value);
+  if (!amount || amount <= 0) { showToast('⚠️ Ingresa un monto válido', 'warn'); return; }
+
+  const { balance } = getTotals();
+  if (amount > balance) {
+    showToast('❌ Saldo insuficiente para este aporte', 'error'); return;
+  }
+
+  const goal = state.goals.find(g => g.id === activeGoalId);
+  if (!goal) return;
+
+  goal.saved += amount;
+  if (goal.saved > goal.target) goal.saved = goal.target; // cap at target
+
+  saveState();
+  closeModal();
+  render();
+
+  const pct = ((goal.saved / goal.target) * 100).toFixed(1);
+  showToast(`💰 Aporte de ${fmt(amount)} a "${goal.name}" · Progreso: ${pct}%`, 'success');
+
+  if (goal.saved >= goal.target) {
+    setTimeout(() => showToast('🎉 ¡Meta completada! ¡Felicidades!', 'success'), 500);
+  }
+}
+
+function withdrawGoal(goalId) {
+  const goal = state.goals.find(g => g.id === goalId);
+  if (!goal) return;
+  if (goal.saved <= 0) { showToast('La meta no tiene fondos para retirar', 'warn'); return; }
+
+  const withdrew = goal.saved;
+  goal.saved = 0;
+  saveState();
+  render();
+  showToast(`↩ ${fmt(withdrew)} retirado de "${goal.name}" al saldo disponible`, 'info');
+}
+
+// ═══════════════════════════════════════════════════════
+//  TOAST
+// ═══════════════════════════════════════════════════════
+function showToast(msg, type = 'info') {
+  const colors = {
+    success: 'var(--accent-green)',
+    error:   'var(--accent-red)',
+    warn:    'var(--accent-gold)',
+    info:    'var(--accent-blue)'
+  };
+  const container = document.getElementById('toast-container');
+  const toast = document.createElement('div');
+  toast.className = 'toast';
+  toast.style.borderLeftColor = colors[type] || colors.info;
+  toast.style.borderLeftWidth = '3px';
+  toast.textContent = msg;
+  container.appendChild(toast);
+  setTimeout(() => toast.remove(), 3200);
+}
+
+// ═══════════════════════════════════════════════════════
+//  XSS HELPER
+// ═══════════════════════════════════════════════════════
+function escHtml(str) {
+  return String(str)
+    .replace(/&/g,'&amp;')
+    .replace(/</g,'&lt;')
+    .replace(/>/g,'&gt;')
+    .replace(/"/g,'&quot;');
+}
+
+// ═══════════════════════════════════════════════════════
+//  DATE DISPLAY
+// ═══════════════════════════════════════════════════════
+function updateDate() {
+  const now = new Date();
+  document.getElementById('header-date').textContent =
+    now.toLocaleDateString('es-MX', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+}
+
+// ═══════════════════════════════════════════════════════
+//  KEYBOARD SHORTCUTS
+// ═══════════════════════════════════════════════════════
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') closeModal();
+  if (e.key === 'Enter' && document.getElementById('aporte-modal').classList.contains('open')) {
+    confirmAporte();
+  }
+});
+
+// Close modal clicking backdrop
+document.getElementById('aporte-modal').addEventListener('click', e => {
+  if (e.target === e.currentTarget) closeModal();
+});
+
+// ═══════════════════════════════════════════════════════
+//  INIT
+// ═══════════════════════════════════════════════════════
+loadState();
+updateDate();
+render();
+</script>
+</body>
+</html>

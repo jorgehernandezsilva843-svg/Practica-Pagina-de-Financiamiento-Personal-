@@ -1,0 +1,313 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>FinanceOS — Gestión Financiera Personal</title>
+    <meta name="description"
+        content="Dashboard de gestión financiera personal con metas de ahorro, registro de ingresos y gastos." />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap"
+        rel="stylesheet" />
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}" />
+</head>
+
+<body>
+
+    <!-- ══════════════ HEADER ══════════════ -->
+    <header>
+        <div class="logo">
+            <div class="logo-icon">F</div>
+            <span class="logo-name">Finance<span>OS</span></span>
+        </div>
+        <div class="header-date" id="header-date"></div>
+    </header>
+
+    <!-- ══════════════ FLASH MESSAGES ══════════════ -->
+    {% with messages = get_flashed_messages(category_filter=["flash"]) %}
+    {% if messages %}
+    <div id="flash-queue" style="display:none">
+        {% for msg in messages %}
+        <span>{{ msg }}</span>
+        {% endfor %}
+    </div>
+    {% endif %}
+    {% endwith %}
+
+    <!-- ══════════════ APP ══════════════ -->
+    <div class="app-container">
+
+        <!-- KPI CARDS -->
+        <p class="section-title">Resumen</p>
+        <div class="kpi-grid">
+            <div class="kpi-card balance">
+                <div class="kpi-label"><span class="kpi-dot"></span> Saldo Disponible</div>
+                <div class="kpi-amount {% if totals.balance < 0 %}negative{% endif %}">
+                    ${{ "{:,.2f}".format(totals.balance) }}
+                </div>
+                <div class="kpi-sub">Ingresos − Gastos − Ahorros en Metas</div>
+            </div>
+            <div class="kpi-card income">
+                <div class="kpi-label"><span class="kpi-dot"></span> Ingresos Totales</div>
+                <div class="kpi-amount">${{ "{:,.2f}".format(totals.income) }}</div>
+                <div class="kpi-sub">{{ totals.income_count }} transacción{{ 'es' if totals.income_count != 1 else '' }}
+                </div>
+            </div>
+            <div class="kpi-card expense">
+                <div class="kpi-label"><span class="kpi-dot"></span> Gastos Totales</div>
+                <div class="kpi-amount">${{ "{:,.2f}".format(totals.expense) }}</div>
+                <div class="kpi-sub">{{ totals.expense_count }} transacción{{ 'es' if totals.expense_count != 1 else ''
+                    }}</div>
+            </div>
+            <div class="kpi-card goals-total">
+                <div class="kpi-label"><span class="kpi-dot"></span> Total en Metas</div>
+                <div class="kpi-amount">${{ "{:,.2f}".format(totals.goals_saved) }}</div>
+                <div class="kpi-sub">{{ totals.goals_count }} meta{{ 's' if totals.goals_count != 1 else '' }} activa{{
+                    's' if totals.goals_count != 1 else '' }}</div>
+            </div>
+        </div>
+
+        <!-- MAIN GRID -->
+        <div class="main-grid">
+
+            <!-- ── COLUMNA IZQ: TRANSACCIONES ── -->
+            <div class="col-stack">
+
+                <!-- Agregar Transacción -->
+                <div class="panel">
+                    <div class="panel-header">
+                        <div class="panel-title">
+                            <span class="icon icon-blue">💳</span>
+                            Nueva Transacción
+                        </div>
+                    </div>
+                    <div class="panel-body">
+                        <form method="POST" action="/transactions/add" id="form-tx">
+                            <div class="type-toggle">
+                                <button type="button" class="type-btn active-income" id="btn-type-income"
+                                    onclick="setTxType('income')">▲ Ingreso</button>
+                                <button type="button" class="type-btn" id="btn-type-expense"
+                                    onclick="setTxType('expense')">▼ Gasto</button>
+                            </div>
+                            <input type="hidden" name="type" id="tx-type-hidden" value="income" />
+
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label for="tx-desc">Descripción</label>
+                                    <input id="tx-desc" name="description" type="text" placeholder="Ej. Salario, Renta…"
+                                        autocomplete="off" />
+                                </div>
+                                <div class="form-group">
+                                    <label for="tx-amount">Monto ($)</label>
+                                    <input id="tx-amount" name="amount" type="number" placeholder="0.00" min="0.01"
+                                        step="0.01" />
+                                </div>
+                            </div>
+                            <div class="form-group">
+                                <label for="tx-category">Categoría</label>
+                                <select id="tx-category" name="category">
+                                    <option>General</option>
+                                    <option>Alimentación</option>
+                                    <option>Transporte</option>
+                                    <option>Vivienda</option>
+                                    <option>Salud</option>
+                                    <option>Educación</option>
+                                    <option>Entretenimiento</option>
+                                    <option>Trabajo</option>
+                                    <option>Inversión</option>
+                                    <option>Otro</option>
+                                </select>
+                            </div>
+                            <button type="submit" class="btn btn-primary btn-full">＋ Agregar Transacción</button>
+                        </form>
+                    </div>
+                </div>
+
+                <!-- Historial -->
+                <div class="panel">
+                    <div class="panel-header">
+                        <div class="panel-title">
+                            <span class="icon icon-blue">📋</span>
+                            Historial
+                        </div>
+                        <div class="filter-tabs">
+                            <button class="filter-tab active" onclick="setFilter('all',this)">Todos</button>
+                            <button class="filter-tab" onclick="setFilter('income',this)">Ingresos</button>
+                            <button class="filter-tab" onclick="setFilter('expense',this)">Gastos</button>
+                        </div>
+                    </div>
+                    <div class="panel-body">
+                        <div class="tx-scroll">
+                            {% if transactions %}
+                            <ul class="tx-list" id="tx-list">
+                                {% for tx in transactions %}
+                                <li class="tx-item" data-type="{{ tx.type }}">
+                                    <div class="tx-badge {{ tx.type }}">{{ '⬆️' if tx.type == 'income' else '⬇️' }}
+                                    </div>
+                                    <div class="tx-info">
+                                        <div class="tx-desc">{{ tx.description }}</div>
+                                        <div class="tx-date">{{ tx.category }} · {{ tx.date[:10] }}</div>
+                                    </div>
+                                    <div class="tx-amount {{ tx.type }}">
+                                        {{ '+' if tx.type == 'income' else '−' }}${{ "{:,.2f}".format(tx.amount) }}
+                                    </div>
+                                    <form method="POST" action="/transactions/delete/{{ tx.id }}"
+                                        style="display:inline">
+                                        <button type="submit" class="btn-del" title="Eliminar">✕</button>
+                                    </form>
+                                </li>
+                                {% endfor %}
+                            </ul>
+                            {% else %}
+                            <div class="empty-state">
+                                <div class="empty-icon">💸</div>
+                                <div>Sin transacciones aún.<br>¡Agrega tu primera entrada!</div>
+                            </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            </div><!-- /col-left -->
+
+            <!-- ── COLUMNA DER: METAS ── -->
+            <div class="col-stack">
+
+                <!-- Nueva Meta -->
+                <div class="panel">
+                    <div class="panel-header">
+                        <div class="panel-title">
+                            <span class="icon icon-gold">🎯</span>
+                            Nueva Meta de Ahorro
+                        </div>
+                    </div>
+                    <div class="panel-body">
+                        <form method="POST" action="/goals/add">
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label for="goal-name">Nombre de la Meta</label>
+                                    <input id="goal-name" name="name" type="text" placeholder="Ej. Fondo de emergencia"
+                                        autocomplete="off" />
+                                </div>
+                                <div class="form-group">
+                                    <label for="goal-target">Monto Objetivo ($)</label>
+                                    <input id="goal-target" name="target" type="number" placeholder="0.00" min="1"
+                                        step="0.01" />
+                                </div>
+                            </div>
+                            <div class="form-group">
+                                <label for="goal-emoji">Emoji / Ícono</label>
+                                <input id="goal-emoji" name="emoji" type="text" placeholder="🏠" maxlength="2"
+                                    style="font-size:18px;text-align:center;" />
+                            </div>
+                            <button type="submit" class="btn btn-gold btn-full">＋ Crear Meta</button>
+                        </form>
+                    </div>
+                </div>
+
+                <!-- Lista de Metas -->
+                <div class="panel">
+                    <div class="panel-header">
+                        <div class="panel-title">
+                            <span class="icon icon-purple">📊</span>
+                            Mis Metas
+                        </div>
+                    </div>
+                    <div class="panel-body">
+                        {% if goals %}
+                        <div class="goals-list">
+                            {% for g in goals %}
+                            {% set pct = [100, (g.saved / g.target * 100) if g.target > 0 else 0] | min %}
+                            {% set complete = pct >= 100 %}
+                            {% set remaining = [0, g.target - g.saved] | max %}
+                            <div class="goal-card">
+                                <div class="goal-header">
+                                    <div class="goal-name">
+                                        <span class="goal-emoji">{{ g.emoji }}</span>
+                                        {{ g.name }}
+                                        {% if complete %}<span class="badge badge-complete">✓ Completada</span>{% endif
+                                        %}
+                                    </div>
+                                    <div class="goal-amounts">
+                                        <div class="goal-amount-saved">${{ "{:,.2f}".format(g.saved) }}</div>
+                                        <div class="goal-amount-target">de ${{ "{:,.2f}".format(g.target) }}</div>
+                                    </div>
+                                </div>
+
+                                <div class="progress-track">
+                                    <div class="progress-fill" style="width:{{ '{:.1f}'.format(pct) }}%"></div>
+                                </div>
+
+                                <div class="goal-meta">
+                                    <span class="goal-pct {{ 'complete' if complete else '' }}">
+                                        {{ '{:.1f}'.format(pct) }}%
+                                    </span>
+                                    <span class="goal-remaining">
+                                        {% if complete %}¡Meta alcanzada! 🎉{% else %}Faltan ${{
+                                        "{:,.2f}".format(remaining) }}{% endif %}
+                                    </span>
+                                </div>
+
+                                <div class="goal-actions">
+                                    {% if not complete %}
+                                    <button class="btn btn-gold"
+                                        onclick="openAporte('{{ g.id }}','{{ g.name }}','{{ g.saved }}','{{ g.target }}')">
+                                        💰 Aportar
+                                    </button>
+                                    {% endif %}
+                                    <form method="POST" action="/goals/withdraw/{{ g.id }}" style="display:inline">
+                                        <button type="submit" class="btn btn-ghost">↩ Retirar</button>
+                                    </form>
+                                    <form method="POST" action="/goals/delete/{{ g.id }}"
+                                        style="display:inline;margin-left:auto">
+                                        <button type="submit" class="btn btn-danger">✕ Eliminar</button>
+                                    </form>
+                                </div>
+                            </div>
+                            {% endfor %}
+                        </div>
+                        {% else %}
+                        <div class="empty-state">
+                            <div class="empty-icon">🎯</div>
+                            <div>Sin metas creadas aún.<br>¡Define tu primer objetivo!</div>
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+
+            </div><!-- /col-right -->
+        </div><!-- /main-grid -->
+
+        <p class="footer-note">
+            💾 Datos guardados en <code>finance_data.json</code> · FinanceOS 2026 · Flask Server
+        </p>
+    </div>
+
+    <!-- ══════════════ MODAL: APORTAR ══════════════ -->
+    <div class="modal-overlay" id="aporte-modal">
+        <div class="modal">
+            <div class="modal-title">💰 Aportar a Meta</div>
+            <div class="modal-sub">
+                Destinar fondos a: <span class="modal-goal-name" id="modal-goal-name">—</span><br>
+                <small class="modal-goal-info" id="modal-goal-info"></small>
+            </div>
+            <form method="POST" id="form-aporte">
+                <div class="form-group">
+                    <label for="aporte-amount">Monto a Aportar ($)</label>
+                    <input id="aporte-amount" name="amount" type="number" placeholder="0.00" min="0.01" step="0.01" />
+                </div>
+                <div class="modal-actions">
+                    <button type="submit" class="btn btn-primary" style="flex:1">Confirmar Aporte</button>
+                    <button type="button" class="btn btn-ghost" onclick="closeModal()">Cancelar</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- ══════════════ TOAST ══════════════ -->
+    <div id="toast-container"></div>
+
+    <script src="{{ url_for('static', filename='js/app.js') }}"></script>
+</body>
+
+</html>

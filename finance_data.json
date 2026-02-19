@@ -1,0 +1,52 @@
+{
+  "transactions": [
+    {
+      "id": "tx_1771528983386",
+      "type": "income",
+      "description": "Salario",
+      "amount": 1000.0,
+      "category": "Transporte",
+      "date": "2026-02-19T13:23:03.387389"
+    },
+    {
+      "id": "tx_1771529078417",
+      "type": "income",
+      "description": "Beca",
+      "amount": 30000.0,
+      "category": "General",
+      "date": "2026-02-19T13:24:38.417586"
+    },
+    {
+      "id": "tx_1771529142766",
+      "type": "expense",
+      "description": "Renta",
+      "amount": 8000.0,
+      "category": "General",
+      "date": "2026-02-19T13:25:42.766247"
+    },
+    {
+      "id": "tx_1771529209742",
+      "type": "income",
+      "description": "Trabajo",
+      "amount": 2000.0,
+      "category": "Trabajo",
+      "date": "2026-02-19T13:26:49.742186"
+    }
+  ],
+  "goals": [
+    {
+      "id": "goal_1771529037493",
+      "name": "Chaifon",
+      "emoji": "🎯",
+      "target": 20000.0,
+      "saved": 4520.0
+    },
+    {
+      "id": "goal_1771529168139",
+      "name": "Emergente",
+      "emoji": "🎯",
+      "target": 2000.0,
+      "saved": 0.0
+    }
+  ]
+}
